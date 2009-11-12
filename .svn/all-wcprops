@@ -1,0 +1,41 @@
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/repos/cel/!svn/ver/551/external/axes/axes
+END
+admin.py
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/repos/cel/!svn/ver/551/external/axes/axes/admin.py
+END
+middleware.py
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/repos/cel/!svn/ver/551/external/axes/axes/middleware.py
+END
+views.py
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/repos/cel/!svn/ver/551/external/axes/axes/views.py
+END
+__init__.py
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/repos/cel/!svn/ver/551/external/axes/axes/__init__.py
+END
+models.py
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/repos/cel/!svn/ver/551/external/axes/axes/models.py
+END
+decorators.py
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/repos/cel/!svn/ver/551/external/axes/axes/decorators.py
+END
