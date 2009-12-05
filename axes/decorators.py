@@ -3,29 +3,24 @@ from django.contrib.auth import logout
 from axes.models import AccessAttempt
 from django.http import HttpResponse
 import axes
+import datetime
 import logging
+from django.core.cache import cache
 
 # see if the user has overridden the failure limit
-if hasattr(settings, 'LOGIN_FAILURE_LIMIT'):
+if hasattr(settings, 'AXES_LOGIN_FAILURE_LIMIT'):
     FAILURE_LIMIT = settings.LOGIN_FAILURE_LIMIT
 else:
     FAILURE_LIMIT = 3
 
-# see if the user has overridden the failure reset setting
-if hasattr(settings, 'LOGIN_FAILURE_RESET'):
-    FAILURE_RESET = settings.LOGIN_FAILURE_RESET
-else:
-    FAILURE_RESET = True
-
 # see if the user has set axes to lock out logins after failure limit
-if hasattr(settings, 'LOCK_OUT_AT_FAILURE'):
-    LOCK_OUT_AT_FAILURE = True
-    FAILURE_RESET = False # this is necessary
+if hasattr(settings, 'AXES_LOCK_OUT_AT_FAILURE'):
+    LOCK_OUT_AT_FAILURE = settings.AXES_LOCK_OUT_AT_FAILURE
 else:
-    LOCK_OUT_AT_FAILURE = False
+    LOCK_OUT_AT_FAILURE = True
 
-if hasattr(settings, 'LOGIN_FAILURE_BY_USER_AGENT'):
-    USE_USER_AGENT = True
+if hasattr(settings, 'AXES_USE_USER_AGENT'):
+    USE_USER_AGENT = settings.AXES_USE_USER_AGENT
 else:
     USE_USER_AGENT = False
 
@@ -36,7 +31,26 @@ log = logging.getLogger('axes.watch_login')
 log.info('BEGIN LOG')
 log.info('Using django-axes ' + axes.get_version())
 
-def watch_login(func, failures):
+def get_user_attempt(request):
+    """
+    Returns access attempt record if it exists.
+    Otherwise return None.
+    """
+    ip = request.META.get('REMOTE_ADDR', '')
+    if USE_USER_AGENT:
+        ua = request.META.get('HTTP_USER_AGENT', '<unknown>')
+        attempts = AccessAttempt.objects.filter(
+            user_agent=ua,
+            ip_address=ip
+        )
+    else:
+        attempts = AccessAttempt.objects.filter(
+            ip_address=ip
+        )
+    if attempts:
+        return attempts[0]
+
+def watch_login(func):
     """
     Used to decorate the django.contrib.admin.site.login method.
     """
@@ -60,57 +74,62 @@ def watch_login(func, failures):
             return response
 
         if request.method == 'POST':
+            failures = 0
             # see if the login was successful
             login_unsuccessful = (
                 response and
                 not response.has_header('location') and
                 response.status_code != 302
             )
-            ip = request.META.get('REMOTE_ADDR', '')
-            if USE_USER_AGENT:
-                ua = request.META.get('HTTP_USER_AGENT', '<unknown>')
-            else:
-                ua = ''
-            key = '%s:%s' % (ip, ua)
+            attempt = get_user_attempt(request)
+            
+            if attempt:
+                failures = attempt.failures_since_start
+
             if login_unsuccessful:
-                log.debug('Failure dict (begin): %s' % failures)
-                
-                # make sure we have an item for this key
-                try:
-                    failures[key]
-                    log.debug('Key %s exists' % key)
-                except KeyError:
-                    log.debug('Creating key %s' % key)
-                    failures[key] = 0
-
                 # add a failed attempt for this user
-                failures[key] += 1
-
-                log.info('Adding a failure for %s; %i failure(s)' % (key, failures[key]))
-                #log.debug('Request: %s' % request)
-
-                log.debug('Failure dict (end): %s' % failures)
+                failures += 1
                 log.info('-' * 79)
 
-            # if we reach or surpass the failure limit, create an
-            # AccessAttempt record
-            if failures[key] >= FAILURE_LIMIT:
-                log.info('=================================')
-                log.info('Creating access attempt record...')
-                log.info('=================================')
-                attempt = AccessAttempt.objects.create(
-                    user_agent=ua,
-                    ip_address=ip,
-                    get_data=query2str(request.GET.items()),
-                    post_data=query2str(request.POST.items()),
-                    http_accept=request.META.get('HTTP_ACCEPT', '<unknown>'),
-                    path_info=request.META.get('PATH_INFO', '<unknown>'),
-                    failures_since_start=failures[key]
-                )
+            # Create an AccessAttempt record if the login wasn't successful
+            if login_unsuccessful:
+                # has already attempted, update the info
+                if attempt:
+                    log.info('=================================')
+                    log.info('Updating access attempt record...')
+                    log.info('=================================')
+                    attempt.get_data = '%s\n---------\n%s' % (
+                        attempt.get_data,
+                        query2str(request.GET.items()),
+                    )
+                    attempt.post_data = '%s\n---------\n%s' % (
+                        attempt.post_data,
+                        query2str(request.POST.items())
+                    )
+                    attempt.http_accept = request.META.get('HTTP_ACCEPT', '<unknown>')
+                    attempt.path_info = request.META.get('PATH_INFO', '<unknown>')
+                    attempt.failures_since_start = failures
+                    attempt.attempt_time = datetime.datetime.now()
+                    attempt.save()
+                else:
+                    log.info('=================================')
+                    log.info('Creating access attempt record...')
+                    log.info('=================================')
+                    ip = request.META.get('REMOTE_ADDR', '')
+                    ua = request.META.get('HTTP_USER_AGENT', '<unknown>')
+                    attempt = AccessAttempt.objects.create(
+                        user_agent=ua,
+                        ip_address=ip,
+                        get_data=query2str(request.GET.items()),
+                        post_data=query2str(request.POST.items()),
+                        http_accept=request.META.get('HTTP_ACCEPT', '<unknown>'),
+                        path_info=request.META.get('PATH_INFO', '<unknown>'),
+                        failures_since_start=failures
+                    )
 
-                if FAILURE_RESET and login_unsuccessful:
-                    del(failures[key])
-
+            # no matter what, we want to lock them out
+            # if they're past the number of attempts allowed
+            if failures > FAILURE_LIMIT:
                 if LOCK_OUT_AT_FAILURE:
                     response = HttpResponse("Account locked: too many login attempts.  "
                                             "Contact an admin to unlock your account."
