@@ -1,5 +1,0 @@
-Patch to django-axes by Philip Neustrom <philipn@gmail.com>.
-
-Lock out people who log in too many times rather than simply log them.
-
-Simply set LOCK_OUT_AT_FAILURE = True in your settings.py.
