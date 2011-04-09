@@ -1,4 +1,4 @@
-NOTE: This is a (likely out of date by now) for that adds the ability to lock out repeated logins.  Please see upstream:
+NOTE: This is a (likely out of date by now) fork that adds the ability to lock out repeated logins.  Please see upstream:
 
 http://code.google.com/p/django-axes/
 
