@@ -162,7 +162,7 @@ def check_request(request, login_unsuccessful):
         failures = attempt.failures_since_start
 
         INTERNAL_IPS = getattr(settings,'INTERNAL_IPS',None)
-        if INTERNAL_IPS and attempt.ip in INTERNAL_IPS:
+        if INTERNAL_IPS and attempt.ip_address in INTERNAL_IPS:
             attempt.delete()
             return True
             #don't lock out anyone from an internal ip
