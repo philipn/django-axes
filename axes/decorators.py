@@ -163,8 +163,9 @@ def check_request(request, login_unsuccessful):
 
         #don't lock out anyone from an internal ip
         INTERNAL_IPS = getattr(settings,'INTERNAL_IPS',None)
-        if INTERNAL_IPS and attempt.ip:
-            if attempt.ip in INTERNAL_IPS:
+        if INTERNAL_IPS and attempt:
+            ip = request.META.get('REMOTE_ADDR', '')
+            if ip in INTERNAL_IPS:
                 attempt.delete()
                 return True
 
