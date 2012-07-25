@@ -161,11 +161,11 @@ def check_request(request, login_unsuccessful):
     if attempt:
         failures = attempt.failures_since_start
 
-    INTERNAL_IPS = getattr(settings,'INTERNAL_IPS',None)
-    if INTERNAL_IPS and attempt.ip in INTERNAL_IPS:
-        attempt.delete()
-        return True
-        #don't lock out anyone from an internal ip
+        INTERNAL_IPS = getattr(settings,'INTERNAL_IPS',None)
+        if INTERNAL_IPS and attempt.ip in INTERNAL_IPS:
+            attempt.delete()
+            return True
+            #don't lock out anyone from an internal ip
 
     # no matter what, we want to lock them out
     # if they're past the number of attempts allowed
