@@ -1,6 +1,6 @@
 NOTE: This is a (likely out of date by now) fork that adds the ability to lock out repeated logins.  Please see upstream:
 
-http://code.google.com/p/django-axes/
+https://github.com/django-pci/django-axes
 
 For the up to date version.
 
